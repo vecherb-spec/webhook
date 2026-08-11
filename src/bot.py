@@ -103,16 +103,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         entity_id = await bitrix.create_from_parsed(lead, meta=_meta(message))
     except BitrixError as exc:
         logger.error("Bitrix error: %s", exc)
-        try:
-            await message.reply_text(f"❌ Не удалось создать в Битрикс24: {exc}")
-        except Exception:  # noqa: BLE001
-            pass
+        if settings.reply_in_telegram:
+            try:
+                await message.reply_text(f"❌ Не удалось создать в Битрикс24: {exc}")
+            except Exception:  # noqa: BLE001
+                pass
         return
     except Exception:
         logger.exception("Unexpected error while creating Bitrix entity")
         return
 
     entity = settings.bitrix_entity
+    logger.info("Created Bitrix %s #%s", entity, entity_id)
+    if not settings.reply_in_telegram:
+        return
     try:
         await message.reply_text(f"✅ В Битрикс24 создан {entity} #{entity_id}")
     except Exception:  # noqa: BLE001

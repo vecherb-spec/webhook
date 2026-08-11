@@ -28,6 +28,7 @@ class Settings:
     keywords: list[str]
     ignore_bots: bool
     min_message_length: int
+    reply_in_telegram: bool
     bitrix_webhook_url: str
     bitrix_entity: Literal["lead", "deal"]
     bitrix_deal_category_id: int | None
@@ -73,6 +74,8 @@ def get_settings() -> Settings:
         ignore_bots=os.getenv("IGNORE_BOTS", "true").strip().lower()
         in {"1", "true", "yes", "on"},
         min_message_length=int(os.getenv("MIN_MESSAGE_LENGTH", "5") or "5"),
+        reply_in_telegram=os.getenv("REPLY_IN_TELEGRAM", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
         bitrix_webhook_url=bitrix.rstrip("/") + "/",
         bitrix_entity=entity,  # type: ignore[arg-type]
         bitrix_deal_category_id=int(deal_cat) if deal_cat else None,
