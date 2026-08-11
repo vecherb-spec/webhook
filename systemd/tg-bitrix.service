@@ -1,0 +1,21 @@
+[Unit]
+Description=Telegram → Bitrix24 bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/tg-bitrix
+EnvironmentFile=/opt/tg-bitrix/.env
+ExecStart=/opt/tg-bitrix/.venv/bin/python /opt/tg-bitrix/main.py
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+
+# Soft hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
