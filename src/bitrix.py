@@ -137,6 +137,19 @@ class BitrixClient:
             "TITLE": lead.title,
             "OPENED": "Y",
         }
+        # Short quiz summary in comments as fallback if UF fields are hidden in UI
+        comment_lines: list[str] = []
+        if lead.quiz_name:
+            comment_lines.append(f"Квиз: {lead.quiz_name}")
+        for question, answer in lead.answers:
+            comment_lines.append(f"{question}: {answer}")
+        if lead.city:
+            comment_lines.append(f"Местоположение: {lead.city}")
+        if lead.messengers.get("max"):
+            comment_lines.append(f"MAX: {lead.messengers['max']}")
+        if comment_lines:
+            fields["COMMENTS"] = "\n".join(comment_lines)
+
         if lead.name:
             parts = lead.name.split(None, 1)
             fields["NAME"] = parts[0]
@@ -152,6 +165,9 @@ class BitrixClient:
             fields["IM"] = [{"VALUE": f"max: {lead.messengers['max']}", "VALUE_TYPE": "OTHER"}]
         if contact_id:
             fields["CONTACT_ID"] = contact_id
+
+        # Avoid Bitrix default SOURCE=CALL
+        fields["SOURCE_ID"] = self.settings.bitrix_source_id or "WEBFORM"
 
         if self.settings.bitrix_assigned_by_id:
             fields["ASSIGNED_BY_ID"] = self.settings.bitrix_assigned_by_id
