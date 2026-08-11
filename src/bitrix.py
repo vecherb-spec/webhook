@@ -55,7 +55,6 @@ class BitrixClient:
             "OPENED": "Y",
         }
         if lead.name:
-            # Split naive first/last
             parts = lead.name.split(None, 1)
             fields["NAME"] = parts[0]
             if len(parts) > 1:
@@ -64,11 +63,22 @@ class BitrixClient:
             fields["PHONE"] = [{"VALUE": lead.phone, "VALUE_TYPE": "WORK"}]
         if lead.email:
             fields["EMAIL"] = [{"VALUE": lead.email, "VALUE_TYPE": "WORK"}]
+        if lead.city:
+            fields["ADDRESS"] = lead.city
+        if lead.messengers.get("max"):
+            fields["IM"] = [{"VALUE": f"max: {lead.messengers['max']}", "VALUE_TYPE": "OTHER"}]
+
+        source_bits = ["Telegram"]
+        if lead.quiz_name:
+            source_bits.append(f"квиз {lead.quiz_name}")
+        if lead.page_url:
+            source_bits.append(lead.page_url)
         if self.settings.bitrix_source_id:
             fields["SOURCE_ID"] = self.settings.bitrix_source_id
         else:
             fields["SOURCE_ID"] = "WEBFORM"
-            fields["SOURCE_DESCRIPTION"] = "Telegram"
+        fields["SOURCE_DESCRIPTION"] = " | ".join(source_bits)[:255]
+
         if self.settings.bitrix_assigned_by_id:
             fields["ASSIGNED_BY_ID"] = self.settings.bitrix_assigned_by_id
         return fields
