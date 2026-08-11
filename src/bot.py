@@ -8,7 +8,8 @@ from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
 from src.bitrix import BitrixClient, BitrixError
 from src.config import Settings, get_settings
-from src.parser import parse_application
+from src.parser import is_quiz_application, parse_application
+
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +23,6 @@ def _message_text(message: Message) -> str | None:
 
 
 def _should_process(settings: Settings, message: Message, text: str) -> bool:
-    if settings.ignore_bots and message.from_user and message.from_user.is_bot:
-        logger.debug("Skip bot message")
-        return False
-
     if len(text.strip()) < settings.min_message_length:
         logger.debug("Skip short message")
         return False
@@ -38,6 +35,17 @@ def _should_process(settings: Settings, message: Message, text: str) -> bool:
             message.chat_id,
             chat_ids,
         )
+        return False
+
+    # Quiz-only mode: ignore chat noise / comments / other correspondence
+    if settings.only_quiz_applications:
+        if not is_quiz_application(text):
+            logger.info("Skip non-quiz message chat_id=%s", message.chat_id)
+            return False
+        return True
+
+    if settings.ignore_bots and message.from_user and message.from_user.is_bot:
+        logger.debug("Skip bot message")
         return False
 
     if settings.filter_by_keywords and settings.keywords:

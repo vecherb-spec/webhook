@@ -81,6 +81,14 @@ Email: ivan@example.com
         self.assertIn("Квиз LED: Андрей", lead.title)
         self.assertEqual(lead.comments, "")
 
+    def test_quiz_filter(self) -> None:
+        from src.parser import is_quiz_application
+
+        self.assertTrue(is_quiz_application(QUIZ_SAMPLE))
+        self.assertFalse(is_quiz_application("Ок, перезвоним завтра"))
+        self.assertFalse(is_quiz_application("Имя: Иван\nТелефон: +79001112233"))
+        self.assertFalse(is_quiz_application("Заявка на квиз LED без контактов"))
+
 
 if __name__ == "__main__":
     unittest.main()

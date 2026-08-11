@@ -9,6 +9,20 @@ EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 QUIZ_TITLE_RE = re.compile(
     r"(?im)^\s*(?:🎯\s*)?заявка\s+на\s+квиз\s*[«\"']?(?P<quiz>.+?)[»\"']?\s*$"
 )
+
+
+def is_quiz_application(text: str) -> bool:
+    """True only for quiz lead messages like 'Заявка на квиз \"LED\"' with contacts."""
+    text = (text or "").strip()
+    if not text or not QUIZ_TITLE_RE.search(text):
+        return False
+    # Require at least name + phone markers typical for the form
+    lowered = text.lower()
+    has_name = bool(re.search(r"(?im)^\s*имя\s*[:=]", text))
+    has_phone = bool(re.search(r"(?im)^\s*(телефон|тел|phone)\s*[:=]", text)) or bool(
+        PHONE_RE.search(text)
+    )
+    return has_name and has_phone
 LABELED_RE = re.compile(
     r"(?im)^\s*(имя|фио|name|телефон|phone|тел|email|почта|e-mail|город|city|"
     r"местоположение|локация|location|страница|page|url|сайт|max|whatsapp|telegram|"
