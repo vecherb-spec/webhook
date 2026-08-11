@@ -15,6 +15,22 @@ class BitrixError(RuntimeError):
     pass
 
 
+# Default UF fields created for MediaLive LED quiz
+DEFAULT_QUIZ_FIELD_MAP: dict[str, str] = {
+    "quiz_name": "UF_CRM_QUIZ_NAME",
+    "тип led": "UF_CRM_LED_TYPE",
+    "тип экрана": "UF_CRM_LED_TYPE",
+    "тип исполнения": "UF_CRM_LED_EXEC",
+    "шаг пикселя": "UF_CRM_LED_PITCH",
+    "ширина": "UF_CRM_LED_WIDTH",
+    "высота": "UF_CRM_LED_HEIGHT",
+    "монтаж": "UF_CRM_LED_MOUNT",
+    "city": "UF_CRM_LED_CITY",
+    "page_url": "UF_CRM_LED_PAGE",
+    "max": "UF_CRM_LED_MAX",
+}
+
+
 class BitrixClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -32,6 +48,33 @@ class BitrixClient:
                 f"{data.get('error')}: {data.get('error_description', data)}"
             )
         return data
+
+    def _quiz_custom_fields(self, lead: ParsedLead) -> dict[str, str]:
+        """Map quiz answers / contacts into Bitrix UF_* lead fields."""
+        out: dict[str, str] = {}
+        fmap = DEFAULT_QUIZ_FIELD_MAP
+
+        if lead.quiz_name and fmap.get("quiz_name"):
+            out[fmap["quiz_name"]] = lead.quiz_name
+        if lead.city and fmap.get("city"):
+            out[fmap["city"]] = lead.city
+        if lead.page_url and fmap.get("page_url"):
+            out[fmap["page_url"]] = lead.page_url
+        if lead.messengers.get("max") and fmap.get("max"):
+            out[fmap["max"]] = lead.messengers["max"]
+
+        for question, answer in lead.answers:
+            q = question.lower()
+            matched_code = None
+            for needle, code in fmap.items():
+                if needle in {"quiz_name", "city", "page_url", "max"}:
+                    continue
+                if needle in q:
+                    matched_code = code
+                    break
+            if matched_code:
+                out[matched_code] = answer
+        return out
 
     def _fields_from_lead(self, lead: ParsedLead, meta: dict[str, Any]) -> dict[str, Any]:
         comments = lead.comments
@@ -81,6 +124,8 @@ class BitrixClient:
 
         if self.settings.bitrix_assigned_by_id:
             fields["ASSIGNED_BY_ID"] = self.settings.bitrix_assigned_by_id
+
+        fields.update(self._quiz_custom_fields(lead))
         return fields
 
     async def create_from_parsed(
