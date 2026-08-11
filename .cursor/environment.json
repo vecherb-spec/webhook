@@ -1,0 +1,16 @@
+{
+  "name": "webhook",
+  "install": "npm install",
+  "terminals": [
+    {
+      "name": "webhook-server",
+      "command": "npm run dev"
+    }
+  ],
+  "ports": [
+    {
+      "name": "webhook",
+      "port": 3000
+    }
+  ]
+}
