@@ -1,0 +1,24 @@
+{
+  "name": "webhook",
+  "version": "1.0.0",
+  "description": "A minimal webhook receiver service with HMAC signature verification.",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "eslint": "^9.18.0",
+    "supertest": "^7.0.0"
+  }
+}
