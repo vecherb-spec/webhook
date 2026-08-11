@@ -88,6 +88,17 @@ Email: ivan@example.com
         self.assertFalse(is_quiz_application("Ок, перезвоним завтра"))
         self.assertFalse(is_quiz_application("Имя: Иван\nТелефон: +79001112233"))
         self.assertFalse(is_quiz_application("Заявка на квиз LED без контактов"))
+        no_name = """🎯 Заявка на квиз "LED"
+
+Телефон: +79190033333
+
+Шаг 1 · Тип LED-экрана
+Уличный
+""".strip()
+        self.assertTrue(is_quiz_application(no_name))
+        lead = parse_application(no_name)
+        self.assertEqual(lead.phone, "+79190033333")
+        self.assertIsNone(lead.name)
 
 
 if __name__ == "__main__":
