@@ -15,12 +15,17 @@ apt-get update -y
 apt-get install -y python3 python3-venv python3-pip
 
 mkdir -p "$APP_DIR"
-rsync -a --delete \
-  --exclude '.git' \
-  --exclude '.venv' \
-  --exclude '__pycache__' \
-  --exclude '.env' \
-  "$REPO_DIR/" "$APP_DIR/"
+# Copy project files without wiping an existing .env / .venv
+shopt -s dotglob nullglob
+for item in "$REPO_DIR"/*; do
+  base="$(basename "$item")"
+  case "$base" in
+    .git|.venv|__pycache__|.env) continue ;;
+  esac
+  rm -rf "$APP_DIR/$base"
+  cp -a "$item" "$APP_DIR/"
+done
+shopt -u dotglob nullglob
 
 python3 -m venv "$APP_DIR/.venv"
 "$APP_DIR/.venv/bin/pip" install --upgrade pip
