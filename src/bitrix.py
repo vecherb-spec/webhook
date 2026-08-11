@@ -58,7 +58,6 @@ class BitrixClient:
             out[fmap["quiz_name"]] = lead.quiz_name
         if lead.city and fmap.get("city"):
             out[fmap["city"]] = lead.city
-        # page_url intentionally not sent — user asked to drop links
         if lead.messengers.get("max") and fmap.get("max"):
             out[fmap["max"]] = lead.messengers["max"]
 
@@ -75,8 +74,65 @@ class BitrixClient:
                 out[matched_code] = answer
         return out
 
-    def _fields_from_lead(self, lead: ParsedLead, meta: dict[str, Any]) -> dict[str, Any]:
-        del meta  # telegram meta not written into Bitrix card
+    def _contact_fields(self, lead: ParsedLead) -> dict[str, Any] | None:
+        if not (lead.name or lead.phone or lead.email):
+            return None
+        fields: dict[str, Any] = {"OPENED": "Y", "TYPE_ID": "CLIENT"}
+        if lead.name:
+            parts = lead.name.split(None, 1)
+            fields["NAME"] = parts[0]
+            if len(parts) > 1:
+                fields["LAST_NAME"] = parts[1]
+        else:
+            fields["NAME"] = "Клиент Telegram"
+        if lead.phone:
+            fields["PHONE"] = [{"VALUE": lead.phone, "VALUE_TYPE": "WORK"}]
+        if lead.email:
+            fields["EMAIL"] = [{"VALUE": lead.email, "VALUE_TYPE": "WORK"}]
+        if lead.messengers.get("max"):
+            fields["IM"] = [{"VALUE": f"max: {lead.messengers['max']}", "VALUE_TYPE": "OTHER"}]
+        if self.settings.bitrix_assigned_by_id:
+            fields["ASSIGNED_BY_ID"] = self.settings.bitrix_assigned_by_id
+        return fields
+
+    async def find_contact_id_by_phone(self, phone: str) -> int | None:
+        try:
+            result = await self._call(
+                "crm.duplicate.findByComm",
+                {
+                    "entity_type": "CONTACT",
+                    "type": "PHONE",
+                    "values": [phone],
+                },
+            )
+        except BitrixError as exc:
+            logger.warning("Duplicate search failed: %s", exc)
+            return None
+        contact_ids = (result.get("result") or {}).get("CONTACT") or []
+        if contact_ids:
+            return int(contact_ids[0])
+        return None
+
+    async def ensure_contact(self, lead: ParsedLead) -> int | None:
+        contact_fields = self._contact_fields(lead)
+        if not contact_fields:
+            return None
+
+        if lead.phone:
+            existing = await self.find_contact_id_by_phone(lead.phone)
+            if existing:
+                logger.info("Reusing Bitrix contact id=%s by phone", existing)
+                return existing
+
+        result = await self._call("crm.contact.add", {"fields": contact_fields})
+        contact_id = int(result["result"])
+        logger.info("Bitrix contact created: id=%s", contact_id)
+        return contact_id
+
+    def _fields_from_lead(
+        self, lead: ParsedLead, meta: dict[str, Any], contact_id: int | None = None
+    ) -> dict[str, Any]:
+        del meta
         fields: dict[str, Any] = {
             "TITLE": lead.title,
             "OPENED": "Y",
@@ -94,6 +150,8 @@ class BitrixClient:
             fields["ADDRESS"] = lead.city
         if lead.messengers.get("max"):
             fields["IM"] = [{"VALUE": f"max: {lead.messengers['max']}", "VALUE_TYPE": "OTHER"}]
+        if contact_id:
+            fields["CONTACT_ID"] = contact_id
 
         if self.settings.bitrix_assigned_by_id:
             fields["ASSIGNED_BY_ID"] = self.settings.bitrix_assigned_by_id
@@ -105,20 +163,27 @@ class BitrixClient:
         self, lead: ParsedLead, meta: dict[str, Any] | None = None
     ) -> int:
         meta = meta or {}
-        fields = self._fields_from_lead(lead, meta)
+        contact_id = await self.ensure_contact(lead)
+        fields = self._fields_from_lead(lead, meta, contact_id=contact_id)
 
         if self.settings.bitrix_entity == "deal":
-            return await self.create_deal(fields)
+            return await self.create_deal(fields, contact_id=contact_id)
         return await self.create_lead(fields)
 
     async def create_lead(self, fields: dict[str, Any]) -> int:
-        logger.info("Creating Bitrix lead: %s", fields.get("TITLE"))
+        logger.info(
+            "Creating Bitrix lead: %s contact_id=%s",
+            fields.get("TITLE"),
+            fields.get("CONTACT_ID"),
+        )
         result = await self._call("crm.lead.add", {"fields": fields})
         lead_id = int(result["result"])
         logger.info("Bitrix lead created: id=%s", lead_id)
         return lead_id
 
-    async def create_deal(self, fields: dict[str, Any]) -> int:
+    async def create_deal(
+        self, fields: dict[str, Any], contact_id: int | None = None
+    ) -> int:
         deal_fields: dict[str, Any] = {
             "TITLE": fields.get("TITLE"),
             "OPENED": "Y",
@@ -129,26 +194,11 @@ class BitrixClient:
             deal_fields["STAGE_ID"] = self.settings.bitrix_deal_stage_id
         if self.settings.bitrix_assigned_by_id:
             deal_fields["ASSIGNED_BY_ID"] = self.settings.bitrix_assigned_by_id
-
-        # For deals, create a contact first if we have contact data
-        contact_id = None
-        if fields.get("NAME") or fields.get("PHONE") or fields.get("EMAIL"):
-            contact_fields: dict[str, Any] = {
-                "NAME": fields.get("NAME") or "Telegram",
-                "OPENED": "Y",
-            }
-            if fields.get("LAST_NAME"):
-                contact_fields["LAST_NAME"] = fields["LAST_NAME"]
-            if fields.get("PHONE"):
-                contact_fields["PHONE"] = fields["PHONE"]
-            if fields.get("EMAIL"):
-                contact_fields["EMAIL"] = fields["EMAIL"]
-            contact = await self._call("crm.contact.add", {"fields": contact_fields})
-            contact_id = int(contact["result"])
+        if contact_id:
             deal_fields["CONTACT_ID"] = contact_id
 
-        logger.info("Creating Bitrix deal: %s", deal_fields.get("TITLE"))
+        logger.info("Creating Bitrix deal: %s contact_id=%s", deal_fields.get("TITLE"), contact_id)
         result = await self._call("crm.deal.add", {"fields": deal_fields})
         deal_id = int(result["result"])
-        logger.info("Bitrix deal created: id=%s contact_id=%s", deal_id, contact_id)
+        logger.info("Bitrix deal created: id=%s", deal_id)
         return deal_id
