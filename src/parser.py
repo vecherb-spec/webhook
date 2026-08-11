@@ -100,25 +100,9 @@ def _extract_quiz_answers(lines: list[str]) -> list[tuple[str, str]]:
 
 
 def _build_comments(lead_bits: dict[str, str | None], answers: list[tuple[str, str]], raw: str) -> str:
-    parts: list[str] = []
-    if lead_bits.get("quiz_name"):
-        parts.append(f"Квиз: {lead_bits['quiz_name']}")
-    if lead_bits.get("city"):
-        parts.append(f"Местоположение: {lead_bits['city']}")
-    if lead_bits.get("page_url"):
-        parts.append(f"Страница: {lead_bits['page_url']}")
-    if lead_bits.get("max"):
-        parts.append(f"MAX: {lead_bits['max']}")
-    if answers:
-        parts.append("")
-        parts.append("Ответы квиза:")
-        for question, answer in answers:
-            parts.append(f"• {question}: {answer}")
-    parts.append("")
-    parts.append("---")
-    parts.append("Исходное сообщение:")
-    parts.append(raw)
-    return "\n".join(parts).strip()
+    # Comments are not sent to Bitrix — data goes into separate UF fields.
+    del lead_bits, answers, raw
+    return ""
 
 
 def _build_title(quiz_name: str | None, name: str | None, answers: list[tuple[str, str]]) -> str:

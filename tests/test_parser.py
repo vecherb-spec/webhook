@@ -50,7 +50,7 @@ Email: ivan@example.com
         self.assertEqual(lead.name, "Иван Петров")
         self.assertTrue(lead.phone.startswith("+7"))
         self.assertEqual(lead.email, "ivan@example.com")
-        self.assertIn("Нужен сайт", lead.comments)
+        self.assertIn("Нужен сайт", lead.raw_text)
         self.assertIn("Telegram", lead.title)
 
     def test_freeform_phone(self) -> None:
@@ -79,8 +79,7 @@ Email: ivan@example.com
         self.assertIn("4000", answers.values())
         self.assertIn("3000", answers.values())
         self.assertIn("Квиз LED: Андрей", lead.title)
-        self.assertIn("Ответы квиза:", lead.comments)
-        self.assertIn("Местоположение: Россия, Волгоград", lead.comments)
+        self.assertEqual(lead.comments, "")
 
 
 if __name__ == "__main__":

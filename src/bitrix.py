@@ -58,8 +58,7 @@ class BitrixClient:
             out[fmap["quiz_name"]] = lead.quiz_name
         if lead.city and fmap.get("city"):
             out[fmap["city"]] = lead.city
-        if lead.page_url and fmap.get("page_url"):
-            out[fmap["page_url"]] = lead.page_url
+        # page_url intentionally not sent — user asked to drop links
         if lead.messengers.get("max") and fmap.get("max"):
             out[fmap["max"]] = lead.messengers["max"]
 
@@ -77,24 +76,9 @@ class BitrixClient:
         return out
 
     def _fields_from_lead(self, lead: ParsedLead, meta: dict[str, Any]) -> dict[str, Any]:
-        comments = lead.comments
-        meta_lines = []
-        if meta.get("chat_title"):
-            meta_lines.append(f"Чат: {meta['chat_title']}")
-        if meta.get("chat_id"):
-            meta_lines.append(f"Chat ID: {meta['chat_id']}")
-        if meta.get("username"):
-            meta_lines.append(f"Telegram: @{meta['username']}")
-        if meta.get("user_id"):
-            meta_lines.append(f"User ID: {meta['user_id']}")
-        if meta.get("message_link"):
-            meta_lines.append(f"Сообщение: {meta['message_link']}")
-        if meta_lines:
-            comments = comments + "\n\n---\n" + "\n".join(meta_lines)
-
+        del meta  # telegram meta not written into Bitrix card
         fields: dict[str, Any] = {
             "TITLE": lead.title,
-            "COMMENTS": comments,
             "OPENED": "Y",
         }
         if lead.name:
@@ -110,17 +94,6 @@ class BitrixClient:
             fields["ADDRESS"] = lead.city
         if lead.messengers.get("max"):
             fields["IM"] = [{"VALUE": f"max: {lead.messengers['max']}", "VALUE_TYPE": "OTHER"}]
-
-        source_bits = ["Telegram"]
-        if lead.quiz_name:
-            source_bits.append(f"квиз {lead.quiz_name}")
-        if lead.page_url:
-            source_bits.append(lead.page_url)
-        if self.settings.bitrix_source_id:
-            fields["SOURCE_ID"] = self.settings.bitrix_source_id
-        else:
-            fields["SOURCE_ID"] = "WEBFORM"
-        fields["SOURCE_DESCRIPTION"] = " | ".join(source_bits)[:255]
 
         if self.settings.bitrix_assigned_by_id:
             fields["ASSIGNED_BY_ID"] = self.settings.bitrix_assigned_by_id
@@ -148,7 +121,6 @@ class BitrixClient:
     async def create_deal(self, fields: dict[str, Any]) -> int:
         deal_fields: dict[str, Any] = {
             "TITLE": fields.get("TITLE"),
-            "COMMENTS": fields.get("COMMENTS"),
             "OPENED": "Y",
         }
         if self.settings.bitrix_deal_category_id is not None:
@@ -157,10 +129,6 @@ class BitrixClient:
             deal_fields["STAGE_ID"] = self.settings.bitrix_deal_stage_id
         if self.settings.bitrix_assigned_by_id:
             deal_fields["ASSIGNED_BY_ID"] = self.settings.bitrix_assigned_by_id
-        if fields.get("SOURCE_ID"):
-            deal_fields["SOURCE_ID"] = fields["SOURCE_ID"]
-        if fields.get("SOURCE_DESCRIPTION"):
-            deal_fields["SOURCE_DESCRIPTION"] = fields["SOURCE_DESCRIPTION"]
 
         # For deals, create a contact first if we have contact data
         contact_id = None
