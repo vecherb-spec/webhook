@@ -137,19 +137,6 @@ class BitrixClient:
             "TITLE": lead.title,
             "OPENED": "Y",
         }
-        # Short quiz summary in comments as fallback if UF fields are hidden in UI
-        comment_lines: list[str] = []
-        if lead.quiz_name:
-            comment_lines.append(f"Квиз: {lead.quiz_name}")
-        for question, answer in lead.answers:
-            comment_lines.append(f"{question}: {answer}")
-        if lead.city:
-            comment_lines.append(f"Местоположение: {lead.city}")
-        if lead.messengers.get("max"):
-            comment_lines.append(f"MAX: {lead.messengers['max']}")
-        if comment_lines:
-            fields["COMMENTS"] = "\n".join(comment_lines)
-
         if lead.name:
             parts = lead.name.split(None, 1)
             fields["NAME"] = parts[0]
