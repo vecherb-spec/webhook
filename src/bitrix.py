@@ -28,6 +28,8 @@ DEFAULT_QUIZ_FIELD_MAP: dict[str, str] = {
     "city": "UF_CRM_LED_CITY",
     "page_url": "UF_CRM_LED_PAGE",
     "max": "UF_CRM_LED_MAX",
+    "vk": "UF_CRM_LED_MAX",  # store messenger contact in MAX field if no phone messenger
+    "telegram": "UF_CRM_LED_MAX",
 }
 
 
@@ -60,6 +62,10 @@ class BitrixClient:
             out[fmap["city"]] = lead.city
         if lead.messengers.get("max") and fmap.get("max"):
             out[fmap["max"]] = lead.messengers["max"]
+        elif lead.messengers.get("telegram") and fmap.get("telegram"):
+            out[fmap["telegram"]] = f"telegram: {lead.messengers['telegram']}"
+        elif lead.messengers.get("vk") and fmap.get("vk"):
+            out[fmap["vk"]] = f"vk: {lead.messengers['vk']}"
 
         for question, answer in lead.answers:
             q = question.lower()
@@ -150,6 +156,10 @@ class BitrixClient:
             fields["ADDRESS"] = lead.city
         if lead.messengers.get("max"):
             fields["IM"] = [{"VALUE": f"max: {lead.messengers['max']}", "VALUE_TYPE": "OTHER"}]
+        elif lead.messengers.get("telegram"):
+            fields["IM"] = [{"VALUE": f"telegram: {lead.messengers['telegram']}", "VALUE_TYPE": "OTHER"}]
+        elif lead.messengers.get("vk"):
+            fields["IM"] = [{"VALUE": f"vk: {lead.messengers['vk']}", "VALUE_TYPE": "OTHER"}]
         if contact_id:
             fields["CONTACT_ID"] = contact_id
 

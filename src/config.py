@@ -30,6 +30,9 @@ class Settings:
     min_message_length: int
     reply_in_telegram: bool
     only_quiz_applications: bool
+    marquiz_http_enabled: bool
+    marquiz_http_host: str
+    marquiz_http_port: int
     bitrix_webhook_url: str
     bitrix_entity: Literal["lead", "deal"]
     bitrix_deal_category_id: int | None
@@ -79,6 +82,10 @@ def get_settings() -> Settings:
         in {"1", "true", "yes", "on"},
         only_quiz_applications=os.getenv("ONLY_QUIZ_APPLICATIONS", "true").strip().lower()
         in {"1", "true", "yes", "on"},
+        marquiz_http_enabled=os.getenv("MARQUIZ_HTTP_ENABLED", "true").strip().lower()
+        in {"1", "true", "yes", "on"},
+        marquiz_http_host=os.getenv("MARQUIZ_HTTP_HOST", "127.0.0.1"),
+        marquiz_http_port=int(os.getenv("MARQUIZ_HTTP_PORT", "8791") or "8791"),
         bitrix_webhook_url=bitrix.rstrip("/") + "/",
         bitrix_entity=entity,  # type: ignore[arg-type]
         bitrix_deal_category_id=int(deal_cat) if deal_cat else None,

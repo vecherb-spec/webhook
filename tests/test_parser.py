@@ -99,6 +99,13 @@ Email: ivan@example.com
         lead = parse_application(no_name)
         self.assertEqual(lead.phone, "+79190033333")
         self.assertIsNone(lead.name)
+        vk_only = """🎯 Заявка на квиз "LED"
+
+Имя: Владимир
+
+vk: @id311394090
+""".strip()
+        self.assertTrue(is_quiz_application(vk_only))
 
 
 if __name__ == "__main__":

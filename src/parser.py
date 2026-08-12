@@ -12,18 +12,22 @@ QUIZ_TITLE_RE = re.compile(
 
 
 def is_quiz_application(text: str) -> bool:
-    """True for quiz lead messages like 'Заявка на квиз \"LED\"' with a phone."""
+    """True for quiz lead messages with phone or messenger contact."""
     text = (text or "").strip()
     if not text or not QUIZ_TITLE_RE.search(text):
         return False
-    # Name is optional on some forms; phone is required
     has_phone = bool(re.search(r"(?im)^\s*(телефон|тел|phone|max)\s*[:=]", text)) or bool(
         PHONE_RE.search(text)
     )
-    return has_phone
+    has_messenger = bool(
+        re.search(r"(?im)^\s*(telegram|whatsapp|max|vk|viber)\s*[:=]", text)
+    )
+    return has_phone or has_messenger
+
+
 LABELED_RE = re.compile(
     r"(?im)^\s*(имя|фио|name|телефон|phone|тел|email|почта|e-mail|город|city|"
-    r"местоположение|локация|location|страница|page|url|сайт|max|whatsapp|telegram|"
+    r"местоположение|локация|location|страница|page|url|сайт|max|whatsapp|telegram|vk|"
     r"комментарий|comment|сообщение|message|услуга|service|источник|source)\s*[:=]\s*(.+?)\s*$"
 )
 # "Шаг N · вопрос" or "Вопрос (Шаг N · ...)" on one line, answer on next
@@ -133,13 +137,17 @@ def _build_title(quiz_name: str | None, name: str | None, answers: list[tuple[st
         elif "шаг пикселя" in q:
             summary_bits.append(answer.replace(" ", ""))
         elif q.startswith("ширина"):
-            summary_bits.append(f"{answer}мм")
+            unit = "м" if "(м)" in question.lower() and "мм" not in question.lower() else "мм"
+            summary_bits.append(f"{answer}{unit}")
         elif q.startswith("высота"):
-            # pair with previous width if possible
-            if summary_bits and summary_bits[-1].endswith("мм") and "×" not in summary_bits[-1]:
-                summary_bits[-1] = f"{summary_bits[-1][:-2]}×{answer}мм"
+            unit = "м" if "(м)" in question.lower() and "мм" not in question.lower() else "мм"
+            if summary_bits and (summary_bits[-1].endswith("мм") or summary_bits[-1].endswith("м")) and "×" not in summary_bits[-1]:
+                prev = summary_bits[-1]
+                prev_unit = "мм" if prev.endswith("мм") else "м"
+                prev_num = prev[: -len(prev_unit)]
+                summary_bits[-1] = f"{prev_num}×{answer}{unit}"
             else:
-                summary_bits.append(f"h{answer}мм")
+                summary_bits.append(f"h{answer}{unit}")
         elif "монтаж" in q:
             summary_bits.append(answer)
     if summary_bits:
@@ -185,7 +193,7 @@ def parse_application(text: str, sender_name: str | None = None) -> ParsedLead:
     )
 
     messengers: dict[str, str] = {}
-    for key in ("max", "whatsapp", "telegram"):
+    for key in ("max", "whatsapp", "telegram", "vk"):
         if key in labeled:
             messengers[key] = labeled[key]
 

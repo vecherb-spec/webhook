@@ -159,6 +159,11 @@ def run() -> None:
     settings = get_settings()
     app = build_app(settings)
 
+    if settings.marquiz_http_enabled:
+        from src.marquiz_server import start_marquiz_server
+
+        start_marquiz_server(settings)
+
     if settings.mode == "webhook":
         if not settings.webhook_url:
             raise SystemExit("WEBHOOK_URL is required when MODE=webhook")
