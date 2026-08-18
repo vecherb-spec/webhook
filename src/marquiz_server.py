@@ -7,8 +7,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
 
-from src.bitrix import BitrixClient
 from src.config import Settings, get_settings
+from src.crm import CrmRouter
 from src.marquiz import parse_marquiz_payload
 from src.parser import is_quiz_application, parse_application
 
@@ -25,7 +25,7 @@ def _json_response(handler: BaseHTTPRequestHandler, code: int, payload: dict[str
 
 
 def make_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
-    bitrix = BitrixClient(settings)
+    crm = CrmRouter(settings)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt: str, *args: Any) -> None:
@@ -72,11 +72,24 @@ def make_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
 
                 import asyncio
 
-                lead_id = asyncio.run(
-                    bitrix.create_from_parsed(lead, meta={"source": "marquiz"})
+                result = asyncio.run(
+                    crm.create_from_parsed(lead, meta={"source": "marquiz"})
                 )
-                logger.info("Marquiz lead created id=%s title=%s", lead_id, lead.title)
-                _json_response(self, 200, {"ok": True, "lead_id": lead_id})
+                logger.info(
+                    "Marquiz lead created bitrix=%s espo=%s",
+                    result.bitrix_id,
+                    result.espo_id,
+                )
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "bitrix_lead_id": result.bitrix_id,
+                        "espo_id": result.espo_id,
+                        "errors": result.errors,
+                    },
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Marquiz webhook failed")
                 _json_response(self, 500, {"ok": False, "error": str(exc)[:300]})

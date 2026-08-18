@@ -1,1 +1,1 @@
-"""Telegram → Bitrix24 bridge."""
+"""Telegram → Bitrix24 / EspoCRM bridge."""

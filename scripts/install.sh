@@ -33,7 +33,7 @@ python3 -m venv "$APP_DIR/.venv"
 
 if [[ ! -f "$APP_DIR/.env" ]]; then
   cp "$APP_DIR/.env.example" "$APP_DIR/.env"
-  echo "Created $APP_DIR/.env — заполните TELEGRAM_BOT_TOKEN и BITRIX_WEBHOOK_URL"
+  echo "Created $APP_DIR/.env — заполните TELEGRAM_BOT_TOKEN и CRM (BITRIX_WEBHOOK_URL и/или ESPO_URL+ESPO_API_KEY)"
 fi
 
 chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"

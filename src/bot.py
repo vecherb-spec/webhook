@@ -6,8 +6,9 @@ from typing import Any
 from telegram import Message, Update
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
-from src.bitrix import BitrixClient, BitrixError
+from src.bitrix import BitrixClient
 from src.config import Settings, get_settings
+from src.crm import CrmRouter
 from src.parser import is_quiz_application, parse_application
 
 
@@ -85,7 +86,7 @@ def _meta(message: Message) -> dict[str, Any]:
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings: Settings = context.application.bot_data["settings"]
-    bitrix: BitrixClient = context.application.bot_data["bitrix"]
+    crm: CrmRouter = context.application.bot_data["crm"]
 
     message = update.effective_message
     if not message:
@@ -108,25 +109,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     lead = parse_application(text, sender_name=_sender_name(message))
     try:
-        entity_id = await bitrix.create_from_parsed(lead, meta=_meta(message))
-    except BitrixError as exc:
-        logger.error("Bitrix error: %s", exc)
+        result = await crm.create_from_parsed(lead, meta=_meta(message))
+    except Exception:
+        logger.exception("Unexpected error while creating CRM entities")
         if settings.reply_in_telegram:
             try:
-                await message.reply_text(f"❌ Не удалось создать в Битрикс24: {exc}")
+                await message.reply_text("❌ Не удалось создать заявку в CRM")
             except Exception:  # noqa: BLE001
                 pass
         return
-    except Exception:
-        logger.exception("Unexpected error while creating Bitrix entity")
-        return
 
-    entity = settings.bitrix_entity
-    logger.info("Created Bitrix %s #%s", entity, entity_id)
+    logger.info(
+        "Created CRM entities bitrix=%s espo=%s errors=%s",
+        result.bitrix_id,
+        result.espo_id,
+        result.errors,
+    )
     if not settings.reply_in_telegram:
         return
+    parts = []
+    if result.bitrix_id is not None:
+        parts.append(f"Bitrix #{result.bitrix_id}")
+    if result.espo_id:
+        parts.append(f"Espo {result.espo_id}")
     try:
-        await message.reply_text(f"✅ В Битрикс24 создан {entity} #{entity_id}")
+        await message.reply_text("✅ Создано: " + ", ".join(parts))
     except Exception:  # noqa: BLE001
         logger.debug("Could not reply in chat (maybe no permission)")
 
@@ -144,7 +151,9 @@ def build_app(settings: Settings | None = None) -> Application:
         .build()
     )
     app.bot_data["settings"] = settings
-    app.bot_data["bitrix"] = BitrixClient(settings)
+    app.bot_data["crm"] = CrmRouter(settings)
+    # keep for backward compatibility if anything expects it
+    app.bot_data["bitrix"] = BitrixClient(settings) if settings.bitrix_enabled else None
 
     app.add_handler(
         MessageHandler(
