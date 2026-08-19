@@ -28,6 +28,40 @@ FIELD_SUCCESS = 111928
 FIELD_MANAGER = 111930
 FIELD_LEAD_SOURCE = 111932
 
+# Quiz fields created via REST (customfield_add) in set «Сделка» (6380)
+FIELD_QUIZ = 112002
+FIELD_EXEC_TYPE = 112004
+FIELD_PIXEL_PITCH = 112006
+FIELD_WIDTH = 112008
+FIELD_HEIGHT = 112010
+FIELD_MOUNT = 112012
+FIELD_PAGE_URL = 112014
+FIELD_MAX = 112016
+FIELD_TELEGRAM = 112018
+
+# All deal custom field ids (for GET fields=... verification)
+DEAL_FIELD_IDS = (
+    FIELD_CURRENCY,
+    FIELD_DELIVERY_DATE,
+    FIELD_INSTALL_PLACE,
+    FIELD_DEAL_AMOUNT,
+    FIELD_SCREEN_TYPE,
+    FIELD_SCREEN_SIZE,
+    FIELD_PAYMENT_STATUS,
+    FIELD_SUCCESS,
+    FIELD_MANAGER,
+    FIELD_LEAD_SOURCE,
+    FIELD_QUIZ,
+    FIELD_EXEC_TYPE,
+    FIELD_PIXEL_PITCH,
+    FIELD_WIDTH,
+    FIELD_HEIGHT,
+    FIELD_MOUNT,
+    FIELD_PAGE_URL,
+    FIELD_MAX,
+    FIELD_TELEGRAM,
+)
+
 SCREEN_TYPE_ENUM = ("Уличный", "Внутренний", "Мобильный", "Прозрачный")
 
 
@@ -179,6 +213,33 @@ class PlanfixClient:
                 "value": {"id": f"user:{manager_id}"},
             }
         )
+
+        # Dedicated quiz fields (Bitrix-like)
+        if lead.quiz_name:
+            fields.append({"field": {"id": FIELD_QUIZ}, "value": lead.quiz_name})
+        exec_type = self._answer(lead, "тип исполнения", "исполнения")
+        if exec_type:
+            fields.append({"field": {"id": FIELD_EXEC_TYPE}, "value": exec_type})
+        pitch = self._answer(lead, "шаг пикселя", "пикселя")
+        if pitch:
+            fields.append({"field": {"id": FIELD_PIXEL_PITCH}, "value": pitch})
+        width = self._answer(lead, "ширина")
+        if width:
+            fields.append({"field": {"id": FIELD_WIDTH}, "value": width})
+        height = self._answer(lead, "высота")
+        if height:
+            fields.append({"field": {"id": FIELD_HEIGHT}, "value": height})
+        mount = self._answer(lead, "монтаж")
+        if mount:
+            fields.append({"field": {"id": FIELD_MOUNT}, "value": mount})
+        if lead.page_url:
+            fields.append({"field": {"id": FIELD_PAGE_URL}, "value": lead.page_url})
+        if lead.messengers.get("max"):
+            fields.append({"field": {"id": FIELD_MAX}, "value": lead.messengers["max"]})
+        if lead.messengers.get("telegram"):
+            fields.append(
+                {"field": {"id": FIELD_TELEGRAM}, "value": lead.messengers["telegram"]}
+            )
         return fields
 
     def _contact_payload(self, lead: ParsedLead) -> dict[str, Any]:
@@ -290,10 +351,45 @@ class PlanfixClient:
                         "customFieldData": custom,
                     },
                 )
-            except PlanfixError:
-                logger.exception(
-                    "Planfix custom fields update failed for task id=%s", task_id
-                )
+            except PlanfixError as exc:
+                # New quiz fields may not yet be placed on the object form.
+                msg = str(exc)
+                if "not permitted" in msg.lower() or "Custom fields not permitted" in msg:
+                    core_ids = {
+                        FIELD_CURRENCY,
+                        FIELD_DELIVERY_DATE,
+                        FIELD_INSTALL_PLACE,
+                        FIELD_DEAL_AMOUNT,
+                        FIELD_SCREEN_TYPE,
+                        FIELD_SCREEN_SIZE,
+                        FIELD_PAYMENT_STATUS,
+                        FIELD_SUCCESS,
+                        FIELD_MANAGER,
+                        FIELD_LEAD_SOURCE,
+                    }
+                    core = [
+                        item
+                        for item in custom
+                        if int(item["field"]["id"]) in core_ids
+                    ]
+                    logger.warning(
+                        "Planfix quiz fields not on object form yet; "
+                        "writing core deal fields only: %s",
+                        msg,
+                    )
+                    await self._request(
+                        "POST",
+                        f"task/{task_id}",
+                        {
+                            "name": payload["name"],
+                            "description": payload["description"],
+                            "customFieldData": core,
+                        },
+                    )
+                else:
+                    logger.exception(
+                        "Planfix custom fields update failed for task id=%s", task_id
+                    )
         return task_id
 
     async def create_from_parsed(self, lead: ParsedLead) -> int:

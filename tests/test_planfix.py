@@ -4,12 +4,20 @@ from unittest.mock import MagicMock
 from src.parser import parse_application
 from src.planfix import (
     FIELD_CURRENCY,
+    FIELD_EXEC_TYPE,
+    FIELD_HEIGHT,
     FIELD_INSTALL_PLACE,
     FIELD_LEAD_SOURCE,
     FIELD_MANAGER,
+    FIELD_MAX,
+    FIELD_MOUNT,
+    FIELD_PAGE_URL,
     FIELD_PAYMENT_STATUS,
+    FIELD_PIXEL_PITCH,
+    FIELD_QUIZ,
     FIELD_SCREEN_SIZE,
     FIELD_SCREEN_TYPE,
+    FIELD_WIDTH,
     PlanfixClient,
 )
 from tests.test_parser import QUIZ_SAMPLE
