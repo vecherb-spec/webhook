@@ -1,6 +1,6 @@
-# Telegram → Bitrix24 / EspoCRM
+# Telegram → Bitrix24 / EspoCRM / Planfix
 
-Скрипт для VPS: заявки из Telegram-чата (и webhook Marquiz) создают **лиды** в Битрикс24 и/или EspoCRM.
+Скрипт для VPS: заявки из Telegram-чата (и webhook Marquiz) создают **лиды/задачи** в Битрикс24, EspoCRM и/или Planfix.
 
 ## Как это работает
 
@@ -9,7 +9,8 @@
 3. Через `CrmRouter` заявка пишется в настроенные CRM:
    - Bitrix24 (`BITRIX_WEBHOOK_URL`)
    - EspoCRM (`ESPO_URL` + `ESPO_API_KEY`)
-4. Можно включить обе CRM сразу — лид создаётся и там, и там.
+   - Planfix (`PLANFIX_URL` + `PLANFIX_TOKEN`)
+4. Можно включить несколько CRM сразу — заявка создаётся во всех.
 
 Режим по умолчанию — **polling** (HTTPS-домен не нужен).
 
@@ -58,6 +59,20 @@
    ```
 
 Опционально: `ESPO_FIELD_MAP=quiz_name:cQuizName,тип led:cLedType` — ответы квиза в кастомные поля.
+
+---
+
+## 2c. Planfix REST API
+
+1. Planfix → **Управление аккаунтом** → **Доступ к API** → **REST API**.
+2. Создай токен со scopes минимум: `contact_add`, `contact_readonly`, `task_add`, `task_update`.
+3. В `.env`:
+   ```env
+   PLANFIX_URL=https://your-account.planfix.ru/rest/
+   PLANFIX_TOKEN=...
+   ```
+
+Создаётся контакт + задача (контрагент = контакт). Описание задачи — ответы квиза.
 
 ---
 

@@ -120,9 +120,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     logger.info(
-        "Created CRM entities bitrix=%s espo=%s errors=%s",
+        "Created CRM entities bitrix=%s espo=%s planfix=%s errors=%s",
         result.bitrix_id,
         result.espo_id,
+        result.planfix_id,
         result.errors,
     )
     if not settings.reply_in_telegram:
@@ -132,6 +133,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parts.append(f"Bitrix #{result.bitrix_id}")
     if result.espo_id:
         parts.append(f"Espo {result.espo_id}")
+    if result.planfix_id is not None:
+        parts.append(f"Planfix #{result.planfix_id}")
     try:
         await message.reply_text("✅ Создано: " + ", ".join(parts))
     except Exception:  # noqa: BLE001

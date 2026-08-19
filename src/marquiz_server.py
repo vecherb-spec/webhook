@@ -76,9 +76,10 @@ def make_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                     crm.create_from_parsed(lead, meta={"source": "marquiz"})
                 )
                 logger.info(
-                    "Marquiz lead created bitrix=%s espo=%s",
+                    "Marquiz lead created bitrix=%s espo=%s planfix=%s",
                     result.bitrix_id,
                     result.espo_id,
+                    result.planfix_id,
                 )
                 _json_response(
                     self,
@@ -87,6 +88,7 @@ def make_handler(settings: Settings) -> type[BaseHTTPRequestHandler]:
                         "ok": True,
                         "bitrix_lead_id": result.bitrix_id,
                         "espo_id": result.espo_id,
+                        "planfix_id": result.planfix_id,
                         "errors": result.errors,
                     },
                 )

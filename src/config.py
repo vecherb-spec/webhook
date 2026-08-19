@@ -64,6 +64,12 @@ class Settings:
     espo_lead_status: str | None
     espo_source: str | None
     espo_assigned_user_id: str | None
+    planfix_enabled: bool
+    planfix_url: str | None
+    planfix_token: str | None
+    planfix_contact_template_id: int | None
+    planfix_task_template_id: int | None
+    planfix_assignee_user_id: int | None
     espo_field_map: dict[str, str] = field(default_factory=dict)
     mode: Literal["polling", "webhook"] = "polling"
     webhook_url: str | None = None
@@ -81,6 +87,8 @@ def get_settings() -> Settings:
     bitrix = os.getenv("BITRIX_WEBHOOK_URL", "").strip() or None
     espo_url = os.getenv("ESPO_URL", "").strip() or None
     espo_key = os.getenv("ESPO_API_KEY", "").strip() or None
+    planfix_url = os.getenv("PLANFIX_URL", "").strip() or None
+    planfix_token = os.getenv("PLANFIX_TOKEN", "").strip() or None
 
     if not token:
         raise SystemExit("TELEGRAM_BOT_TOKEN is required")
@@ -94,10 +102,14 @@ def get_settings() -> Settings:
     espo_enabled = bool(espo_url and espo_key) and os.getenv(
         "ESPO_ENABLED", "true"
     ).strip().lower() in {"1", "true", "yes", "on"}
+    planfix_enabled = bool(planfix_url and planfix_token) and os.getenv(
+        "PLANFIX_ENABLED", "true"
+    ).strip().lower() in {"1", "true", "yes", "on"}
 
-    if not bitrix_enabled and not espo_enabled:
+    if not bitrix_enabled and not espo_enabled and not planfix_enabled:
         raise SystemExit(
-            "Configure at least one CRM: BITRIX_WEBHOOK_URL and/or ESPO_URL+ESPO_API_KEY"
+            "Configure at least one CRM: BITRIX_WEBHOOK_URL, "
+            "ESPO_URL+ESPO_API_KEY, and/or PLANFIX_URL+PLANFIX_TOKEN"
         )
 
     entity = os.getenv("BITRIX_ENTITY", "lead").strip().lower()
@@ -110,6 +122,9 @@ def get_settings() -> Settings:
 
     deal_cat = os.getenv("BITRIX_DEAL_CATEGORY_ID", "").strip()
     assigned = os.getenv("BITRIX_ASSIGNED_BY_ID", "").strip()
+    pf_contact_tpl = os.getenv("PLANFIX_CONTACT_TEMPLATE_ID", "").strip()
+    pf_task_tpl = os.getenv("PLANFIX_TASK_TEMPLATE_ID", "").strip()
+    pf_assignee = os.getenv("PLANFIX_ASSIGNEE_USER_ID", "").strip()
 
     return Settings(
         telegram_bot_token=token,
@@ -143,6 +158,12 @@ def get_settings() -> Settings:
         espo_source=os.getenv("ESPO_SOURCE") or "Web Site",
         espo_assigned_user_id=os.getenv("ESPO_ASSIGNED_USER_ID") or None,
         espo_field_map=_parse_field_map(os.getenv("ESPO_FIELD_MAP")),
+        planfix_enabled=planfix_enabled,
+        planfix_url=planfix_url,
+        planfix_token=planfix_token,
+        planfix_contact_template_id=int(pf_contact_tpl) if pf_contact_tpl else None,
+        planfix_task_template_id=int(pf_task_tpl) if pf_task_tpl else None,
+        planfix_assignee_user_id=int(pf_assignee) if pf_assignee else None,
         mode=mode,  # type: ignore[arg-type]
         webhook_url=os.getenv("WEBHOOK_URL") or None,
         webhook_host=os.getenv("WEBHOOK_HOST", "0.0.0.0"),
