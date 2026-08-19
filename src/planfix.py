@@ -115,8 +115,10 @@ class PlanfixClient:
             "description": self._description(lead),
             "priority": "NotUrgent",
         }
-        if self.settings.planfix_task_template_id:
-            payload["template"] = {"id": self.settings.planfix_task_template_id}
+        # Template 15 = "Сделка" in MediaLive Planfix; override via PLANFIX_TASK_TEMPLATE_ID
+        tpl_id = self.settings.planfix_task_template_id
+        if tpl_id:
+            payload["template"] = {"id": tpl_id}
         if contact_id is not None:
             # PersonRequest id is string; counterparty expects contact number
             payload["counterparty"] = {"id": str(contact_id)}
