@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -13,6 +14,21 @@ logger = logging.getLogger(__name__)
 
 class PlanfixError(RuntimeError):
     pass
+
+
+# MediaLive object «Сделка» (id=24) custom fields — same idea as Bitrix UF_* map
+FIELD_CURRENCY = 111910
+FIELD_DELIVERY_DATE = 111912
+FIELD_INSTALL_PLACE = 111914
+FIELD_DEAL_AMOUNT = 111920
+FIELD_SCREEN_TYPE = 111922
+FIELD_SCREEN_SIZE = 111924
+FIELD_PAYMENT_STATUS = 111926
+FIELD_SUCCESS = 111928
+FIELD_MANAGER = 111930
+FIELD_LEAD_SOURCE = 111932
+
+SCREEN_TYPE_ENUM = ("Уличный", "Внутренний", "Мобильный", "Прозрачный")
 
 
 class PlanfixClient:
@@ -56,23 +72,104 @@ class PlanfixClient:
                 )
             return data if isinstance(data, dict) else {"result": data}
 
+    def _answer(self, lead: ParsedLead, *needles: str) -> str | None:
+        for question, answer in lead.answers:
+            q = question.lower()
+            if any(n in q for n in needles):
+                return answer.strip()
+        return None
+
+    def _normalize_screen_type(self, raw: str | None) -> str | None:
+        if not raw:
+            return None
+        text = raw.strip()
+        lower = text.lower()
+        for option in SCREEN_TYPE_ENUM:
+            if option.lower() in lower or lower in option.lower():
+                return option
+        return None
+
+    def _screen_size(self, lead: ParsedLead) -> str | None:
+        width = self._answer(lead, "ширина")
+        height = self._answer(lead, "высота")
+        if width and height:
+            w = re.sub(r"[^\d.,]", "", width) or width
+            h = re.sub(r"[^\d.,]", "", height) or height
+            return f"{w} x {h} мм"
+        if width:
+            return f"ширина {width}"
+        if height:
+            return f"высота {height}"
+        return None
+
     def _description(self, lead: ParsedLead) -> str:
+        """Full quiz dump for the deal description (like Bitrix comments)."""
         lines: list[str] = []
         if lead.quiz_name:
             lines.append(f"Квиз: {lead.quiz_name}")
-        for question, answer in lead.answers:
-            lines.append(f"{question}: {answer}")
-        if lead.city:
-            lines.append(f"Местоположение: {lead.city}")
-        for key, value in lead.messengers.items():
-            lines.append(f"{key}: {value}")
-        if lead.page_url:
-            lines.append(f"Страница: {lead.page_url}")
+        if lead.name:
+            lines.append(f"Имя: {lead.name}")
         if lead.phone:
             lines.append(f"Телефон: {lead.phone}")
         if lead.email:
             lines.append(f"Email: {lead.email}")
+        for key, value in lead.messengers.items():
+            lines.append(f"{key}: {value}")
+
+        # Prefer stable labels for known LED quiz steps
+        labeled = [
+            ("Тип экрана", self._answer(lead, "тип led", "тип экрана")),
+            ("Тип исполнения", self._answer(lead, "тип исполнения", "исполнения")),
+            ("Шаг пикселя", self._answer(lead, "шаг пикселя", "пикселя")),
+            ("Ширина", self._answer(lead, "ширина")),
+            ("Высота", self._answer(lead, "высота")),
+            ("Монтаж", self._answer(lead, "монтаж")),
+        ]
+        used_answers = {v for _, v in labeled if v}
+        for label, value in labeled:
+            if value:
+                lines.append(f"{label}: {value}")
+        for question, answer in lead.answers:
+            if answer in used_answers:
+                continue
+            lines.append(f"{question}: {answer}")
+
+        if lead.city:
+            lines.append(f"Местоположение: {lead.city}")
+        if lead.page_url:
+            lines.append(f"Страница: {lead.page_url}")
         return "\n".join(lines) or lead.title
+
+    def _custom_field_data(self, lead: ParsedLead) -> list[dict[str, Any]]:
+        """Map quiz → object «Сделка» fields (MediaLive defaults)."""
+        fields: list[dict[str, Any]] = [
+            {"field": {"id": FIELD_CURRENCY}, "value": "RUB"},
+            {"field": {"id": FIELD_PAYMENT_STATUS}, "value": "Не выставлен счет"},
+            {"field": {"id": FIELD_LEAD_SOURCE}, "value": "Сайт"},
+            {"field": {"id": FIELD_SUCCESS}, "value": False},
+        ]
+
+        screen_type = self._normalize_screen_type(
+            self._answer(lead, "тип led", "тип экрана")
+        )
+        if screen_type:
+            fields.append({"field": {"id": FIELD_SCREEN_TYPE}, "value": screen_type})
+
+        size = self._screen_size(lead)
+        if size:
+            fields.append({"field": {"id": FIELD_SCREEN_SIZE}, "value": size})
+
+        if lead.city:
+            fields.append({"field": {"id": FIELD_INSTALL_PLACE}, "value": lead.city})
+
+        if self.settings.planfix_assignee_user_id:
+            fields.append(
+                {
+                    "field": {"id": FIELD_MANAGER},
+                    "value": f"user:{self.settings.planfix_assignee_user_id}",
+                }
+            )
+        return fields
 
     def _contact_payload(self, lead: ParsedLead) -> dict[str, Any]:
         first = "Клиент"
@@ -119,6 +216,7 @@ class PlanfixClient:
         object_id = self.settings.planfix_object_id
         if object_id:
             payload["object"] = {"id": object_id}
+            payload["customFieldData"] = self._custom_field_data(lead)
         tpl_id = self.settings.planfix_task_template_id
         if tpl_id:
             payload["template"] = {"id": tpl_id}
