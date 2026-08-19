@@ -70,9 +70,13 @@
    ```env
    PLANFIX_URL=https://your-account.planfix.ru/rest/
    PLANFIX_TOKEN=...
+   PLANFIX_CONTACT_TEMPLATE_ID=1
+   # Пользовательский объект «Сделка» (у MediaLive: object=24)
+   PLANFIX_OBJECT_ID=24
    ```
 
-Создаётся контакт + задача (контрагент = контакт). Описание задачи — ответы квиза.
+Создаётся контакт + элемент объекта «Сделка» (контрагент = контакт). Описание — ответы квиза.
+Без `PLANFIX_OBJECT_ID` Planfix создаёт обычную задачу, не сделку.
 
 ---
 

@@ -115,7 +115,10 @@ class PlanfixClient:
             "description": self._description(lead),
             "priority": "NotUrgent",
         }
-        # Template 15 = "Сделка" in MediaLive Planfix; override via PLANFIX_TASK_TEMPLATE_ID
+        # User object "Сделка" — without object id Planfix creates a plain task
+        object_id = self.settings.planfix_object_id
+        if object_id:
+            payload["object"] = {"id": object_id}
         tpl_id = self.settings.planfix_task_template_id
         if tpl_id:
             payload["template"] = {"id": tpl_id}

@@ -13,6 +13,7 @@ class PlanfixPayloadTests(unittest.TestCase):
         settings.planfix_token = "test-token"
         settings.planfix_contact_template_id = None
         settings.planfix_task_template_id = None
+        settings.planfix_object_id = 24
         settings.planfix_assignee_user_id = None
         return PlanfixClient(settings)
 
@@ -22,6 +23,7 @@ class PlanfixPayloadTests(unittest.TestCase):
         settings.planfix_token = "t"
         settings.planfix_contact_template_id = None
         settings.planfix_task_template_id = None
+        settings.planfix_object_id = None
         settings.planfix_assignee_user_id = None
         client = PlanfixClient(settings)
         self.assertEqual(client.base, "https://medialive.planfix.ru/rest")
@@ -38,6 +40,7 @@ class PlanfixPayloadTests(unittest.TestCase):
         task = client._task_payload(lead, contact_id=42)
         self.assertIn("LED", task["name"])
         self.assertEqual(task["counterparty"]["id"], "42")
+        self.assertEqual(task["object"]["id"], 24)
         self.assertIn("P 4", task["description"])
 
 

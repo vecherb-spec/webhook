@@ -69,6 +69,7 @@ class Settings:
     planfix_token: str | None
     planfix_contact_template_id: int | None
     planfix_task_template_id: int | None
+    planfix_object_id: int | None
     planfix_assignee_user_id: int | None
     espo_field_map: dict[str, str] = field(default_factory=dict)
     mode: Literal["polling", "webhook"] = "polling"
@@ -124,6 +125,7 @@ def get_settings() -> Settings:
     assigned = os.getenv("BITRIX_ASSIGNED_BY_ID", "").strip()
     pf_contact_tpl = os.getenv("PLANFIX_CONTACT_TEMPLATE_ID", "").strip()
     pf_task_tpl = os.getenv("PLANFIX_TASK_TEMPLATE_ID", "").strip()
+    pf_object = os.getenv("PLANFIX_OBJECT_ID", "").strip()
     pf_assignee = os.getenv("PLANFIX_ASSIGNEE_USER_ID", "").strip()
 
     return Settings(
@@ -163,6 +165,7 @@ def get_settings() -> Settings:
         planfix_token=planfix_token,
         planfix_contact_template_id=int(pf_contact_tpl) if pf_contact_tpl else None,
         planfix_task_template_id=int(pf_task_tpl) if pf_task_tpl else None,
+        planfix_object_id=int(pf_object) if pf_object else None,
         planfix_assignee_user_id=int(pf_assignee) if pf_assignee else None,
         mode=mode,  # type: ignore[arg-type]
         webhook_url=os.getenv("WEBHOOK_URL") or None,
