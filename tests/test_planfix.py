@@ -6,6 +6,7 @@ from src.planfix import (
     FIELD_CURRENCY,
     FIELD_INSTALL_PLACE,
     FIELD_LEAD_SOURCE,
+    FIELD_MANAGER,
     FIELD_PAYMENT_STATUS,
     FIELD_SCREEN_SIZE,
     FIELD_SCREEN_TYPE,
@@ -58,8 +59,12 @@ class PlanfixPayloadTests(unittest.TestCase):
         self.assertEqual(by_id[FIELD_PAYMENT_STATUS], "Не выставлен счет")
         self.assertEqual(by_id[FIELD_LEAD_SOURCE], "Сайт")
         self.assertEqual(by_id[FIELD_SCREEN_TYPE], "Уличный")
-        self.assertEqual(by_id[FIELD_SCREEN_SIZE], "4000 x 3000 мм")
+        self.assertIn("4000 x 3000 мм", by_id[FIELD_SCREEN_SIZE])
+        self.assertIn("P 4", by_id[FIELD_SCREEN_SIZE])
+        self.assertIn("Отдельностоящий", by_id[FIELD_SCREEN_SIZE])
         self.assertEqual(by_id[FIELD_INSTALL_PLACE], "Россия, Волгоград")
+        self.assertEqual(by_id[FIELD_MANAGER], {"id": "user:1"})
+        self.assertEqual(task["name"], "LED / Уличный / 4000 x 3000 / Андрей")
 
     def test_no_custom_fields_without_object(self) -> None:
         client = self._client(object_id=None)

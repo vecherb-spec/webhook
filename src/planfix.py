@@ -92,15 +92,25 @@ class PlanfixClient:
     def _screen_size(self, lead: ParsedLead) -> str | None:
         width = self._answer(lead, "ширина")
         height = self._answer(lead, "высота")
+        pitch = self._answer(lead, "шаг пикселя", "пикселя")
+        exec_type = self._answer(lead, "тип исполнения", "исполнения")
+        mount = self._answer(lead, "монтаж")
+        parts: list[str] = []
         if width and height:
             w = re.sub(r"[^\d.,]", "", width) or width
             h = re.sub(r"[^\d.,]", "", height) or height
-            return f"{w} x {h} мм"
-        if width:
-            return f"ширина {width}"
-        if height:
-            return f"высота {height}"
-        return None
+            parts.append(f"{w} x {h} мм")
+        elif width:
+            parts.append(f"ширина {width}")
+        elif height:
+            parts.append(f"высота {height}")
+        if pitch:
+            parts.append(pitch)
+        if exec_type:
+            parts.append(exec_type)
+        if mount:
+            parts.append(mount)
+        return ", ".join(parts) if parts else None
 
     def _description(self, lead: ParsedLead) -> str:
         """Full quiz dump for the deal description (like Bitrix comments)."""
@@ -162,13 +172,13 @@ class PlanfixClient:
         if lead.city:
             fields.append({"field": {"id": FIELD_INSTALL_PLACE}, "value": lead.city})
 
-        if self.settings.planfix_assignee_user_id:
-            fields.append(
-                {
-                    "field": {"id": FIELD_MANAGER},
-                    "value": f"user:{self.settings.planfix_assignee_user_id}",
-                }
-            )
+        manager_id = self.settings.planfix_assignee_user_id or 1
+        fields.append(
+            {
+                "field": {"id": FIELD_MANAGER},
+                "value": {"id": f"user:{manager_id}"},
+            }
+        )
         return fields
 
     def _contact_payload(self, lead: ParsedLead) -> dict[str, Any]:
@@ -196,19 +206,34 @@ class PlanfixClient:
             payload["telegram"] = lead.messengers["telegram"]
         return payload
 
+    def _deal_title(self, lead: ParsedLead) -> str:
+        """Visible title with key quiz attrs (falls back if custom fields fail)."""
+        parts: list[str] = []
+        if lead.quiz_name:
+            parts.append(lead.quiz_name)
+        screen = self._normalize_screen_type(
+            self._answer(lead, "тип led", "тип экрана")
+        )
+        if screen:
+            parts.append(screen)
+        width = self._answer(lead, "ширина")
+        height = self._answer(lead, "высота")
+        if width and height:
+            w = re.sub(r"[^\d.,]", "", width) or width
+            h = re.sub(r"[^\d.,]", "", height) or height
+            parts.append(f"{w} x {h}")
+        who = lead.name or lead.phone
+        if who:
+            parts.append(who)
+        if parts:
+            return " / ".join(parts)[:250]
+        return (lead.title or "Заявка квиз")[:250]
+
     def _task_payload(
         self, lead: ParsedLead, contact_id: int | None
     ) -> dict[str, Any]:
-        title = lead.title
-        if lead.quiz_name:
-            title = f"Заявка квиз «{lead.quiz_name}»"
-            if lead.name:
-                title = f"{title}: {lead.name}"
-            elif lead.phone:
-                title = f"{title}: {lead.phone}"
-
         payload: dict[str, Any] = {
-            "name": title[:250],
+            "name": self._deal_title(lead),
             "description": self._description(lead),
             "priority": "NotUrgent",
         }
@@ -239,15 +264,37 @@ class PlanfixClient:
         return int(contact_id)
 
     async def create_task(self, lead: ParsedLead, contact_id: int | None) -> int:
-        result = await self._request(
-            "POST", "task/", self._task_payload(lead, contact_id)
-        )
+        payload = self._task_payload(lead, contact_id)
+        # Planfix may ignore customFieldData on create for custom objects —
+        # create first, then force-update fields.
+        create_payload = {
+            k: v for k, v in payload.items() if k != "customFieldData"
+        }
+        result = await self._request("POST", "task/", create_payload)
         task_id = result.get("id")
         if task_id is None and isinstance(result.get("task"), dict):
             task_id = result["task"].get("id")
         if task_id is None:
             raise PlanfixError(f"Planfix task create returned no id: {result}")
-        return int(task_id)
+        task_id = int(task_id)
+
+        custom = payload.get("customFieldData")
+        if custom:
+            try:
+                await self._request(
+                    "POST",
+                    f"task/{task_id}",
+                    {
+                        "name": payload["name"],
+                        "description": payload["description"],
+                        "customFieldData": custom,
+                    },
+                )
+            except PlanfixError:
+                logger.exception(
+                    "Planfix custom fields update failed for task id=%s", task_id
+                )
+        return task_id
 
     async def create_from_parsed(self, lead: ParsedLead) -> int:
         """Create contact (best-effort) + task; return task id."""
