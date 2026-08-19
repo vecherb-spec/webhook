@@ -88,8 +88,9 @@ class PlanfixClient:
             "description": self._description(lead),
             "isCompany": False,
         }
-        if self.settings.planfix_contact_template_id:
-            payload["template"] = {"id": self.settings.planfix_contact_template_id}
+        # Planfix requires a contact template; default to 1 (standard contact)
+        tpl_id = self.settings.planfix_contact_template_id or 1
+        payload["template"] = {"id": tpl_id}
         if lead.email:
             payload["email"] = lead.email
         if lead.phone:
