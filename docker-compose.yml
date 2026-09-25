@@ -1,0 +1,9 @@
+services:
+  tg-bitrix:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Uncomment for webhook mode:
+    # ports:
+    #   - "8080:8080"
